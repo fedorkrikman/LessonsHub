@@ -1,27 +1,14 @@
 from aiogram import F, Router, types
 from aiogram.filters import Command
 
-from service import (
-    START_BUTTON_TEXT,
-    STOP_BUTTON_TEXT,
-    build_quiz_keyboard,
+from logic import new_quiz, quiz_data
+from quiz_state import (
     finish_quiz_session,
-    format_results,
     get_quiz_state,
-    new_quiz,
-    quiz_data,
     record_answer,
     start_quiz_session,
 )
-
-# Перенесено из Project12:
-# - app/logic.py (quiz_data, new_quiz): последовательность вопросов и inline-кнопки.
-# - app/handlers/common.py (кнопки START/STOP): тексты клавиатуры и её построение.
-# - app/handlers/start.py (cmd_start): приветствие и показ клавиатуры.
-# - app/handlers/quiz.py (cmd_quiz/cmd_stop/process_quiz_answer/_show_results_and_finish):
-#   сценарий диалога, обработка ответов и вывод статистики.
-# - app/db/quiz.py (start_quiz_session, set_question_index, record_answer, finish_quiz_session, get_quiz_state):
-#   операции сохранения состояния в базе.
+from service import START_BUTTON_TEXT, STOP_BUTTON_TEXT, build_quiz_keyboard, format_results
 
 router = Router()
 
@@ -44,7 +31,7 @@ async def cmd_quiz(message: types.Message) -> None:
     if state and state.get("is_active"):
         await message.answer(
             "Квиз уже запущен. Отвечайте на вопросы или завершите игру.",
-            reply_markup=build_quиз_keyboard(True),
+            reply_markup=build_quiz_keyboard(True),
         )
         return
 
@@ -52,22 +39,22 @@ async def cmd_quiz(message: types.Message) -> None:
     await start_quiz_session(user.id, username)
     await message.answer(
         "Давайте начнем квиз!",
-        reply_markup=build_quиз_keyboard(True),
+        reply_markup=build_quiz_keyboard(True),
     )
     await new_quiz(message, user.id, 0)
 
 
 @router.message(F.text == STOP_BUTTON_TEXT)
 async def cmd_stop(message: types.Message) -> None:
-    user_id = message.from_user.id
-    state = await get_quiz_state(user_id)
+    user = message.from_user
+    state = await get_quiz_state(user.id)
     if not state or not state.get("is_active"):
         await message.answer(
             "Сейчас нет активного квиза.",
             reply_markup=build_quiz_keyboard(False),
         )
         return
-    await _show_results_and_finish(message, user_id)
+    await _show_results_and_finish(message, user.id)
 
 
 @router.callback_query(F.data.startswith("quiz_answer_"))
