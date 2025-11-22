@@ -1,0 +1,11 @@
+CREATE TABLE `quiz_state` (
+    user_id Uint64,
+    username Utf8,
+    question_index Uint64,
+    correct_answers Uint64,
+    incorrect_answers Uint64,
+    is_active Bool,
+    PRIMARY KEY (`user_id`)
+);
+
+COMMIT;
