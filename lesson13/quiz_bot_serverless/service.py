@@ -1,4 +1,4 @@
-from typing import Any, Dict, Optional
+from typing import Any, Dict, List, Optional
 
 from aiogram import types
 from aiogram.utils.keyboard import InlineKeyboardBuilder, ReplyKeyboardBuilder
@@ -8,73 +8,55 @@ from database import execute_select_query, execute_update_query, pool
 START_BUTTON_TEXT = "Начать игру"
 STOP_BUTTON_TEXT = "Прервать и показать результаты"
 
-quiz_data = [
-    {
-        "question": "Что такое Python?",
-        "options": [
-            "Язык программирования",
-            "Тип данных",
-            "Музыкальный инструмент",
-            "Змея на английском",
-        ],
-        "correct_option": 0,
-    },
-    {
-        "question": "Какой тип данных используется для хранения целых чисел?",
-        "options": ["int", "float", "str", "natural"],
-        "correct_option": 0,
-    },
-    {
-        "question": "Какой тип данных используется для хранения вещественных чисел?",
-        "options": ["float", "int", "complex", "double"],
-        "correct_option": 0,
-    },
-    {
-        "question": "Какой оператор используется для возведения в степень?",
-        "options": ["**", "^", "exp()", "//"],
-        "correct_option": 0,
-    },
-    {
-        "question": "Как называется структура данных, изменяемая и индексируемая, позволяющая хранить последовательности?",
-        "options": ["list", "tuple", "set", "dict"],
-        "correct_option": 0,
-    },
-    {
-        "question": "Какой тип данных представляет неизменяемую последовательность?",
-        "options": ["tuple", "list", "set", "dict"],
-        "correct_option": 0,
-    },
-    {
-        "question": "Какой метод строки позволяет перевести её в нижний регистр?",
-        "options": ["lower()", "down()", "to_lower()", "small()"],
-        "correct_option": 0,
-    },
-    {
-        "question": "Какой оператор сравнения проверяет равенство значений?",
-        "options": ["==", "=", "!=", "==="],
-        "correct_option": 0,
-    },
-    {
-        "question": "Какой цикл используется для перебора элементов последовательности?",
-        "options": ["for", "while", "loop", "repeat"],
-        "correct_option": 0,
-    },
-    {
-        "question": "Как называется структура данных, использующая пары «ключ–значение»?",
-        "options": ["dict", "list", "tuple", "array"],
-        "correct_option": 0,
-    },
-    {
-        "question": "Какой встроенный тип данных представляет множество уникальных элементов?",
-        "options": ["set", "list", "dict", "array"],
-        "correct_option": 0,
-    },
-    {
-        "question": "Какой оператор используется для целочисленного деления?",
-        "options": ["//", "/", "%", "div"],
-        "correct_option": 0,
-    },
-]
+_OPTION_LETTER_TO_INDEX = {"a": 0, "b": 1, "c": 2, "d": 3}
+_QUIZ_SELECT_QUERY = """
+    SELECT id, text, option_a, option_b, option_c, option_d, correct_option, points
+    FROM `quiz_questions`
+    ORDER BY id;
+"""
+_quiz_data_cache: Optional[List[Dict[str, Any]]] = None
+
+
+def _row_value(row: Any, key: str, default: Any = None) -> Any:
+    try:
+        value = row[key]
+    except (KeyError, IndexError):
+        return default
+    return default if value is None else value
+
+
+def load_quiz_data() -> List[Dict[str, Any]]:
+    rows = execute_select_query(pool, _QUIZ_SELECT_QUERY) or []
+    loaded_data: List[Dict[str, Any]] = []
+
+    for row in rows:
+        correct_letter = str(_row_value(row, "correct_option", "")).lower()
+        if correct_letter not in _OPTION_LETTER_TO_INDEX:
+            raise ValueError(f"Unexpected correct option value: {correct_letter!r}")
+
+        loaded_data.append(
+            {
+                "question": _row_value(row, "text", ""),
+                "options": [
+                    _row_value(row, "option_a", ""),
+                    _row_value(row, "option_b", ""),
+                    _row_value(row, "option_c", ""),
+                    _row_value(row, "option_d", ""),
+                ],
+                "correct_option": _OPTION_LETTER_TO_INDEX[correct_letter],
+            }
+        )
+    return loaded_data
+
+
+def get_quiz_data() -> List[Dict[str, Any]]:
+    global _quiz_data_cache
+    if _quiz_data_cache is None:
+        _quiz_data_cache = load_quiz_data()
+    return _quiz_data_cache
+
+
+quiz_data = get_quiz_data()
 
 
 def build_quiz_keyboard(is_active: bool) -> types.ReplyKeyboardMarkup:
@@ -98,6 +80,7 @@ def format_results(username: str, correct: int, incorrect: int) -> str:
 
 
 async def new_quiz(message: types.Message, user_id: int, question_index: int = 0) -> bool:
+    quiz_data = get_quiz_data()
     if question_index >= len(quiz_data):
         return False
 
@@ -202,18 +185,11 @@ async def finish_quiz_session(user_id: int) -> Optional[Dict[str, Any]]:
 
 
 def _row_to_dict(row: Any) -> Dict[str, Any]:
-    def _value(key: str, default: Any = None) -> Any:
-        try:
-            value = row[key]
-        except (KeyError, IndexError):
-            return default
-        return default if value is None else value
-
     return {
-        "user_id": _value("user_id"),
-        "username": _value("username"),
-        "question_index": _value("question_index", 0),
-        "correct_answers": _value("correct_answers", 0),
-        "incorrect_answers": _value("incorrect_answers", 0),
-        "is_active": bool(_value("is_active", False)),
+        "user_id": _row_value(row, "user_id"),
+        "username": _row_value(row, "username"),
+        "question_index": _row_value(row, "question_index", 0),
+        "correct_answers": _row_value(row, "correct_answers", 0),
+        "incorrect_answers": _row_value(row, "incorrect_answers", 0),
+        "is_active": bool(_row_value(row, "is_active", False)),
     }

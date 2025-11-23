@@ -44,7 +44,7 @@ async def cmd_quiz(message: types.Message) -> None:
     if state and state.get("is_active"):
         await message.answer(
             "Квиз уже запущен. Отвечайте на вопросы или завершите игру.",
-            reply_markup=build_quиз_keyboard(True),
+            reply_markup=build_quiz_keyboard(True),
         )
         return
 
@@ -52,7 +52,7 @@ async def cmd_quiz(message: types.Message) -> None:
     await start_quiz_session(user.id, username)
     await message.answer(
         "Давайте начнем квиз!",
-        reply_markup=build_quиз_keyboard(True),
+        reply_markup=build_quiz_keyboard(True),
     )
     await new_quiz(message, user.id, 0)
 
