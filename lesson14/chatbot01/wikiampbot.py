@@ -16,6 +16,10 @@ load_dotenv(BASE_DIR / "local.env")
 TELEGRAM_TOKEN = os.getenv("BOT_API_KEY")
 LLM_API_KEY = os.getenv("OPENAI_API_KEY")
 LLM_BASE_URL = os.getenv("base_url", "https://api.vsegpt.ru/v1")
+COVER_IMAGE_URL = os.getenv(
+    "COVER_IMAGE_URL", "https://storage.yandexcloud.net/vedro-c-gvozdyami/wikiampbot-olympic.png"
+)
+
 
 bot: Optional[Bot] = None
 dispatcher: Optional[Dispatcher] = None
@@ -75,10 +79,20 @@ async def cmd_start(message: Message) -> None:
         return
     user_mode.pop(user.id, None)
     user_topic.pop(user.id, None)
-    await message.answer(
+    start_text = (
         "Привет! Я @wikiampbot. Пока доступен простой режим /talk для диалога с GPT. "
         "Используйте /help, чтобы узнать о командах."
     )
+    if COVER_IMAGE_URL:
+        try:
+            await message.answer_photo(
+                photo=COVER_IMAGE_URL,
+                caption=start_text,
+            )
+            return
+        except Exception:
+            pass
+    await message.answer(start_text)
 
 
 async def cmd_help(message: Message) -> None:

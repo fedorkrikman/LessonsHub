@@ -11,7 +11,7 @@ import os
 import re
 import time
 from pathlib import Path
-from typing import Iterable, List, Sequence
+from typing import Sequence
 
 import mwclient
 from mwclient import errors as mw_errors
@@ -19,10 +19,31 @@ import mwparserfromhell
 import pandas as pd
 from openai import OpenAI
 
+
+def load_local_env(path: Path) -> None:
+    """Load key=value pairs from a simple .env file into os.environ."""
+
+    if not path.exists():
+        return
+
+    with path.open(encoding="utf-8") as env_file:
+        for raw_line in env_file:
+            line = raw_line.strip()
+            if not line or line.startswith("#") or "=" not in line:
+                continue
+            key, value = line.split("=", 1)
+            key = key.strip()
+            value = value.strip().strip('"').strip("'")
+            if key and key not in os.environ:
+                os.environ[key] = value
+
+
 # --------------------------------------------------------------------------------------
 # Configuration block
 # --------------------------------------------------------------------------------------
-CATEGORY_TITLE = os.getenv("WIKI_CATEGORY", "Category:2022 Winter Olympics")
+load_local_env(Path(__file__).resolve().parent / "local.env")
+#CATEGORY_TITLE = os.getenv("WIKI_CATEGORY", "Category:2022 Winter Olympics")
+CATEGORY_TITLE = os.getenv("WIKI_CATEGORY", "Category:1980 Summer Olympics")
 WIKI_SITE = os.getenv("WIKI_SITE", "en.wikipedia.org")
 MAX_PAGES = int(os.getenv("MAX_PAGES", "10"))
 USE_PAGE_LIMIT = os.getenv("USE_PAGE_LIMIT", "true").lower() == "true"
@@ -51,6 +72,7 @@ SECTIONS_TO_IGNORE = {
 EMBEDDING_MODEL = os.getenv("EMBEDDING_MODEL", "text-embedding-3-small")
 EMBEDDING_BASE_URL = os.getenv("OPENAI_BASE_URL", "https://api.vsegpt.ru/v1")
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
+USER_AGENT = os.getenv("USER_AGENT", "LessonsHubWikiParser/0.1 (your-email-or-url)")
 EMBEDDING_BATCH_SIZE = int(os.getenv("EMBEDDING_BATCH_SIZE", "8"))
 LOG_LEVEL = os.getenv("LOG_LEVEL", "INFO").upper()
 
@@ -262,7 +284,7 @@ def run_pipeline() -> None:
     """Execute the full workflow from fetching pages to saving CSV."""
 
     logging.info("Starting pipeline for site '%s' and category '%s'", WIKI_SITE, CATEGORY_TITLE)
-    site = mwclient.Site(host=WIKI_SITE)
+    site = mwclient.Site(host=WIKI_SITE, clients_useragent=USER_AGENT)
 
     titles = fetch_category_titles(site)
     if not titles:
