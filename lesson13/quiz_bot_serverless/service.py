@@ -65,13 +65,32 @@ def get_quiz_data() -> List[Dict[str, Any]]:
 quiz_data = get_quiz_data()
 
 
+def _prepare_question_for_session(question_template: Dict[str, Any]) -> Dict[str, Any]:
+    """Return a copy of question data with shuffled answer options."""
+    question_copy = dict(question_template)
+    options = list(question_template.get("options", []))
+    indexed_options = list(enumerate(options))
+    random.shuffle(indexed_options)
+
+    question_copy["options"] = [option for _, option in indexed_options]
+    correct_option = question_template.get("correct_option")
+    for idx, (original_index, _) in enumerate(indexed_options):
+        if original_index == correct_option:
+            question_copy["correct_option"] = idx
+            break
+    else:
+        question_copy["correct_option"] = 0
+    return question_copy
+
+
 def _assign_questions_for_user(user_id: int) -> List[Dict[str, Any]]:
     questions = get_quiz_data()
     if len(questions) < QUESTIONS_PER_SESSION:
         raise ValueError(
             f"Not enough quiz questions in DB: required {QUESTIONS_PER_SESSION}, got {len(questions)}"
         )
-    selected = random.sample(questions, QUESTIONS_PER_SESSION)
+    selected_templates = random.sample(questions, QUESTIONS_PER_SESSION)
+    selected = [_prepare_question_for_session(question) for question in selected_templates]
     _active_user_questions[user_id] = selected
     return selected
 
