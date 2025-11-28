@@ -1,0 +1,13 @@
+.venv/
+__pycache__/
+.ipynb_checkpoints/
+.local/
+.cache/
+.cursor/
+.*/
+.ipython/
+.jupyter/
+
+.vscode-server/
+.dotnet/
+.gnupg/

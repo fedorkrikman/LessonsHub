@@ -1,0 +1,3 @@
+[submodule "env/tf-gpu"]
+    path = env/tf-gpu
+    url = git@github.com:USER/tf-gpu-env.git
